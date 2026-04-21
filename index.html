@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Meal Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --clay:#C4724A; --clay-light:#d4876a; --clay-dark:#a85a35;
+    --sage:#7A8C6E; --sage-light:#9aaa8e; --sage-dark:#5a6b50;
+    --cream:#F5EFE4; --cream-dark:#ebe2d2;
+    --bark:#3D2E1E; --bark-light:#5a4530;
+    --sand:#D4C4A8; --sand-dark:#bfac8e;
+    --white:#fdfaf6;
+    --shadow:rgba(61,46,30,0.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--bark);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+  header{background:var(--bark);color:var(--cream);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-bottom:3px solid var(--clay);}
+  header h1{font-family:'Playfair Display',serif;font-size:1.25rem;font-weight:600;letter-spacing:.02em;}
+  header h1 span{color:var(--clay);font-style:italic;}
+  .header-stats{display:flex;gap:32px;align-items:center;}
+  .stat-pill{text-align:right;}
+  .stat-pill .label{font-size:.6rem;text-transform:uppercase;letter-spacing:.12em;color:var(--sand);font-weight:500;}
+  .stat-pill .value{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:600;color:var(--cream);}
+  .stat-pill .value span{font-size:.65rem;font-family:'DM Sans',sans-serif;color:var(--sand);margin-left:2px;}
+
+  .app-body{display:flex;flex:1;overflow:hidden;}
+
+  .sidebar{width:268px;flex-shrink:0;background:var(--white);border-right:1px solid var(--sand);display:flex;flex-direction:column;overflow:hidden;}
+  .sidebar-header{padding:13px 15px 11px;border-bottom:1px solid var(--sand);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+  .sidebar-header h2{font-family:'Playfair Display',serif;font-size:.95rem;font-weight:600;color:var(--bark);flex:1;}
+  .sidebar-btns{display:flex;gap:7px;align-items:center;}
+  .btn-icon{background:var(--clay);color:white;border:none;border-radius:50%;width:26px;height:26px;font-size:.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0;}
+  .btn-icon:hover{background:var(--clay-dark);}
+  .btn-icon.sage{background:var(--sage);}
+  .btn-icon.sage:hover{background:var(--sage-dark);}
+
+  .import-zone{margin:8px 10px 4px;border:1.5px dashed var(--sand-dark);border-radius:9px;padding:14px 12px 12px;text-align:center;cursor:pointer;transition:all .15s;background:var(--cream);flex-shrink:0;display:none;}
+  .import-zone.visible{display:block;}
+  .import-zone:hover,.import-zone.dragover{border-color:var(--sage);background:rgba(122,140,110,.07);}
+  .import-zone.loading{border-color:var(--clay);background:rgba(196,114,74,.05);pointer-events:none;}
+  .import-zone input[type=file]{display:none;}
+  .import-zone-icon{font-size:1.5rem;display:block;margin-bottom:5px;}
+  .import-zone-text{font-size:.71rem;color:var(--bark-light);line-height:1.45;}
+  .import-zone-text strong{color:var(--sage-dark);font-weight:600;}
+  .import-zone-hint{font-size:.62rem;color:var(--sand-dark);margin-top:3px;}
+  .import-zone-status{display:none;font-size:.7rem;color:var(--bark-light);margin-top:8px;align-items:center;justify-content:center;gap:6px;}
+  .import-preview{width:100%;max-height:70px;object-fit:cover;border-radius:5px;margin-bottom:7px;display:none;border:1px solid var(--sand);}
+  .import-zone.has-image .import-preview{display:block;}
+  .import-zone.has-image .import-zone-icon{display:none;}
+
+  .recipe-list{flex:1;overflow-y:auto;padding:10px;}
+  .recipe-list::-webkit-scrollbar{width:4px;}
+  .recipe-list::-webkit-scrollbar-thumb{background:var(--sand);border-radius:2px;}
+  .recipe-card{background:var(--cream);border:1px solid var(--sand);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:grab;transition:all .15s;position:relative;}
+  .recipe-card:hover{border-color:var(--clay);box-shadow:0 2px 8px var(--shadow);transform:translateY(-1px);}
+  .recipe-card:active{cursor:grabbing;}
+  .recipe-card.dragging{opacity:.5;transform:scale(.97);}
+  .recipe-card-name{font-family:'Playfair Display',serif;font-size:.82rem;font-weight:600;color:var(--bark);margin-bottom:3px;line-height:1.3;padding-right:18px;}
+  .recipe-card-meta{font-size:.68rem;color:var(--bark-light);display:flex;gap:8px;}
+  .recipe-card-cal{color:var(--clay);font-weight:600;}
+  .recipe-card-tag{background:var(--sage);color:white;font-size:.55rem;padding:1px 5px;border-radius:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;align-self:flex-start;margin-top:2px;}
+  .recipe-card-delete{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--sand-dark);cursor:pointer;font-size:.75rem;opacity:0;transition:opacity .15s;padding:2px;}
+  .recipe-card:hover .recipe-card-delete{opacity:1;}
+  .recipe-card-delete:hover{color:var(--clay);}
+  .empty-library{text-align:center;padding:22px 12px;color:var(--sand-dark);font-size:.73rem;font-style:italic;}
+
+  .add-recipe-panel{background:var(--bark);padding:14px 15px;flex-shrink:0;border-top:1px solid var(--bark-light);overflow-y:auto;max-height:390px;display:none;}
+  .add-recipe-panel.open{display:block;}
+  .add-recipe-panel::-webkit-scrollbar{width:3px;}
+  .add-recipe-panel::-webkit-scrollbar-thumb{background:var(--bark-light);}
+  .panel-title{font-family:'Playfair Display',serif;font-size:.85rem;color:var(--cream);font-weight:600;margin-bottom:12px;font-style:italic;}
+  .form-field{margin-bottom:8px;}
+  .form-field label{font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--sand);font-weight:500;display:block;margin-bottom:3px;}
+  .form-field input,.form-field select{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:var(--cream);padding:6px 8px;font-family:'DM Sans',sans-serif;font-size:.78rem;border-radius:5px;outline:none;transition:border-color .15s;}
+  .form-field input::placeholder{color:rgba(245,239,228,.35);}
+  .form-field input:focus,.form-field select:focus{border-color:var(--clay);}
+  .form-field select option{background:var(--bark);color:var(--cream);}
+  .ings-hdr{font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--sand);font-weight:500;margin:8px 0 5px;}
+  .ingredient-row{display:grid;grid-template-columns:48px 58px 1fr 18px;gap:4px;margin-bottom:4px;align-items:center;}
+  .ingredient-row input{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:var(--cream);padding:5px 6px;font-family:'DM Sans',sans-serif;font-size:.72rem;border-radius:4px;outline:none;width:100%;}
+  .ingredient-row input::placeholder{color:rgba(245,239,228,.3);}
+  .ingredient-row input:focus{border-color:var(--clay);}
+  .ingredient-row select{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:var(--cream);padding:5px 2px;font-family:'DM Sans',sans-serif;font-size:.68rem;border-radius:4px;outline:none;width:100%;}
+  .ingredient-row select option{background:var(--bark);}
+  .btn-remove-ing{background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:.9rem;padding:0;line-height:1;transition:color .12s;}
+  .btn-remove-ing:hover{color:var(--clay);}
+  .btn-add-ing{background:none;border:1px dashed rgba(255,255,255,.2);color:var(--sand);font-family:'DM Sans',sans-serif;font-size:.7rem;padding:5px 10px;border-radius:4px;cursor:pointer;width:100%;margin-top:2px;transition:all .15s;}
+  .btn-add-ing:hover{border-color:var(--clay);color:var(--clay);}
+  .servings-row{display:flex;align-items:center;gap:8px;margin:8px 0 10px;}
+  .servings-row label{font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--sand);font-weight:500;}
+  .servings-row input{width:50px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:var(--cream);padding:5px 6px;font-family:'DM Sans',sans-serif;font-size:.78rem;border-radius:4px;outline:none;}
+  .btn-estimate{width:100%;background:var(--clay);color:white;border:none;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;border-radius:6px;cursor:pointer;letter-spacing:.03em;transition:background .15s;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .btn-estimate:hover{background:var(--clay-dark);}
+  .btn-estimate:disabled{background:rgba(196,114,74,.4);cursor:not-allowed;}
+
+  .grid-area{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+  .week-nav{padding:8px 20px;background:var(--white);border-bottom:1px solid var(--sand);display:flex;align-items:center;gap:12px;flex-shrink:0;}
+  .week-nav button{background:none;border:1px solid var(--sand);color:var(--bark);padding:3px 10px;border-radius:4px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.72rem;transition:all .12s;}
+  .week-nav button:hover{border-color:var(--clay);color:var(--clay);}
+  .week-nav .week-label{font-family:'Playfair Display',serif;font-size:.85rem;font-weight:600;color:var(--bark);flex:1;}
+  .btn-clear-week{font-size:.65rem !important;color:var(--bark-light) !important;}
+  .planner-grid{flex:1;overflow-x:auto;overflow-y:auto;padding:12px 16px;}
+  .planner-grid::-webkit-scrollbar{height:5px;width:5px;}
+  .planner-grid::-webkit-scrollbar-track{background:var(--cream-dark);}
+  .planner-grid::-webkit-scrollbar-thumb{background:var(--sand-dark);border-radius:3px;}
+  .grid-table{display:grid;grid-template-columns:80px repeat(7,1fr);gap:6px;min-width:900px;}
+  .day-header{text-align:center;padding:6px 4px 8px;}
+  .day-header .day-name{font-family:'Playfair Display',serif;font-size:.78rem;font-weight:600;color:var(--bark);display:block;}
+  .day-header .day-date{font-size:.62rem;color:var(--bark-light);display:block;margin-top:1px;}
+  .day-header.today .day-name{color:var(--clay);}
+  .day-header.today .day-date{background:var(--clay);color:white;border-radius:10px;padding:1px 6px;display:inline-block;}
+  .meal-label{display:flex;align-items:flex-start;padding-top:8px;}
+  .meal-label span{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--bark-light);line-height:1.3;text-align:right;width:100%;}
+  .meal-slot{min-height:58px;background:var(--white);border:1.5px dashed var(--sand);border-radius:8px;display:flex;align-items:stretch;justify-content:stretch;transition:all .15s;position:relative;overflow:hidden;}
+  .meal-slot.drag-over{border-color:var(--clay);background:rgba(196,114,74,.06);transform:scale(1.01);}
+  .meal-slot.has-recipe{border-style:solid;border-color:var(--sand-dark);}
+  .meal-slot.has-recipe:hover{border-color:var(--clay);}
+  .slot-empty{display:flex;align-items:center;justify-content:center;width:100%;color:var(--sand-dark);}
+  .slot-empty-icon{font-size:1rem;opacity:.4;}
+  .slot-recipe{width:100%;padding:7px 9px;cursor:context-menu;display:flex;flex-direction:column;justify-content:space-between;}
+  .slot-recipe-name{font-family:'Playfair Display',serif;font-size:.73rem;font-weight:600;color:var(--bark);line-height:1.25;margin-bottom:3px;}
+  .slot-recipe-cal{font-size:.62rem;color:var(--clay);font-weight:600;}
+  .slot-recipe-macros{font-size:.58rem;color:var(--bark-light);margin-top:1px;}
+  .slot-color-bar{position:absolute;left:0;top:0;bottom:0;width:3px;}
+  .meal-breakfast .slot-color-bar{background:var(--clay);}
+  .meal-snack1 .slot-color-bar{background:var(--sage);}
+  .meal-lunch .slot-color-bar{background:#c4944a;}
+  .meal-snack2 .slot-color-bar{background:var(--sage-dark);}
+  .meal-dinner .slot-color-bar{background:var(--bark-light);}
+  .meal-snack3 .slot-color-bar{background:var(--sage);}
+
+  .day-totals-bar{background:var(--bark);border-top:2px solid var(--clay);flex-shrink:0;overflow-x:auto;height:54px;display:flex;align-items:stretch;}
+  .day-totals-bar::-webkit-scrollbar{height:3px;}
+  .day-totals-bar::-webkit-scrollbar-thumb{background:var(--bark-light);}
+  .day-totals-inner{display:flex;align-items:stretch;min-width:900px;width:100%;padding:0 16px;}
+  .totals-label{width:80px;flex-shrink:0;display:flex;align-items:center;font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;color:var(--sand);font-weight:600;padding-right:8px;}
+  .day-total-cell{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 4px;border-left:1px solid rgba(255,255,255,.05);}
+  .day-total-cell.today-col{background:rgba(196,114,74,.12);}
+  .day-total-cell .total-cal{font-family:'Playfair Display',serif;font-size:.95rem;font-weight:600;color:var(--cream);line-height:1;}
+  .day-total-cell .total-cal-unit{font-size:.55rem;color:var(--sand);}
+  .day-total-cell .total-protein{font-size:.6rem;color:var(--sage-light);margin-top:2px;}
+
+  .context-menu{position:fixed;background:var(--bark);border:1px solid var(--bark-light);border-radius:8px;padding:4px;box-shadow:0 8px 28px rgba(0,0,0,.3);z-index:1000;min-width:160px;display:none;animation:menuIn .1s ease;}
+  .context-menu.open{display:block;}
+  @keyframes menuIn{from{opacity:0;transform:scale(.95) translateY(-4px);}to{opacity:1;transform:scale(1) translateY(0);}}
+  .ctx-title{font-family:'Playfair Display',serif;font-size:.78rem;color:var(--cream);padding:6px 10px 4px;font-style:italic;border-bottom:1px solid var(--bark-light);margin-bottom:3px;}
+  .ctx-item{padding:7px 10px;font-size:.73rem;color:var(--sand);cursor:pointer;border-radius:4px;display:flex;align-items:center;gap:8px;transition:background .1s;}
+  .ctx-item:hover{background:rgba(255,255,255,.07);color:var(--cream);}
+  .ctx-item.danger{color:#e07a7a;}
+  .ctx-item.danger:hover{background:rgba(196,74,74,.12);}
+  .ctx-item .ctx-icon{width:14px;text-align:center;}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(61,46,30,.55);backdrop-filter:blur(3px);z-index:900;display:none;align-items:center;justify-content:center;padding:16px;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--white);border-radius:12px;padding:24px 26px;max-width:540px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:modalIn .18s ease;position:relative;max-height:92vh;overflow-y:auto;}
+  .modal::-webkit-scrollbar{width:4px;}
+  .modal::-webkit-scrollbar-thumb{background:var(--sand);border-radius:2px;}
+  @keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+  .modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:1.2rem;color:var(--sand-dark);cursor:pointer;}
+  .modal-close:hover{color:var(--bark);}
+  .modal h2{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--bark);margin-bottom:4px;padding-right:24px;}
+  .modal .modal-tag{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--sage);font-weight:600;margin-bottom:16px;display:block;}
+  .nutrition-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+  .nut-cell{background:var(--cream);border-radius:8px;padding:10px 12px;text-align:center;}
+  .nut-value{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:700;color:var(--bark);display:block;line-height:1;}
+  .nut-label{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--bark-light);margin-top:3px;display:block;}
+  .nut-cell.highlight .nut-value{color:var(--clay);}
+  .modal-ingredients h3{font-family:'Playfair Display',serif;font-size:.85rem;color:var(--bark);margin-bottom:8px;}
+  .modal-ingredients ul{list-style:none;font-size:.78rem;color:var(--bark-light);line-height:1.8;columns:2;}
+  .modal-ingredients ul li::before{content:'·';color:var(--clay);margin-right:5px;}
+
+  .confirm-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px;}
+  .confirm-thumb{width:70px;height:70px;object-fit:cover;border-radius:8px;flex-shrink:0;border:1px solid var(--sand);}
+  .confirm-thumb-placeholder{width:70px;height:70px;border-radius:8px;background:var(--cream-dark);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;border:1px solid var(--sand);}
+  .confirm-title-area{flex:1;}
+  .confirm-source{font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--sage);font-weight:600;margin-bottom:4px;display:block;}
+  .confirm-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .confirm-field label{font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--bark-light);font-weight:600;display:block;margin-bottom:3px;}
+  .confirm-field input,.confirm-field select{width:100%;border:1px solid var(--sand);background:var(--cream);color:var(--bark);padding:6px 8px;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:.8rem;outline:none;transition:border-color .15s;}
+  .confirm-field input:focus,.confirm-field select:focus{border-color:var(--clay);}
+  .confirm-field.full{grid-column:1/-1;}
+  .confirm-ings-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--bark-light);font-weight:600;margin-bottom:6px;display:block;}
+  .confirm-ing-row{display:grid;grid-template-columns:52px 68px 1fr 20px;gap:5px;margin-bottom:5px;align-items:center;}
+  .confirm-ing-row input,.confirm-ing-row select{border:1px solid var(--sand);background:var(--cream);color:var(--bark);padding:5px 6px;border-radius:4px;font-family:'DM Sans',sans-serif;font-size:.75rem;outline:none;width:100%;}
+  .confirm-ing-row input:focus,.confirm-ing-row select:focus{border-color:var(--clay);}
+  .confirm-ing-row .btn-rm{background:none;border:none;color:var(--sand-dark);cursor:pointer;font-size:.9rem;padding:0;line-height:1;}
+  .confirm-ing-row .btn-rm:hover{color:var(--clay);}
+  .btn-confirm-add-ing{background:none;border:1px dashed var(--sand-dark);color:var(--bark-light);font-family:'DM Sans',sans-serif;font-size:.7rem;padding:5px 10px;border-radius:4px;cursor:pointer;width:100%;margin:4px 0 16px;transition:all .15s;}
+  .btn-confirm-add-ing:hover{border-color:var(--clay);color:var(--clay);}
+  .confirm-actions{display:flex;gap:10px;}
+  .btn-confirm-save{flex:1;background:var(--clay);color:white;border:none;padding:10px;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .15s;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .btn-confirm-save:hover{background:var(--clay-dark);}
+  .btn-confirm-save:disabled{background:rgba(196,114,74,.4);cursor:not-allowed;}
+  .btn-confirm-cancel{background:none;border:1px solid var(--sand-dark);color:var(--bark-light);padding:10px 16px;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.8rem;cursor:pointer;transition:all .15s;}
+  .btn-confirm-cancel:hover{border-color:var(--bark);color:var(--bark);}
+
+  .toast-container{position:fixed;bottom:70px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px;}
+  .toast{background:var(--bark);color:var(--cream);padding:10px 16px;border-radius:8px;font-size:.78rem;border-left:3px solid var(--clay);box-shadow:0 4px 16px rgba(0,0,0,.2);animation:toastIn .2s ease;max-width:280px;}
+  .toast.success{border-color:var(--sage);}
+  .toast.error{border-color:#c45a5a;}
+  @keyframes toastIn{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
+  .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;}
+  .spinner.dark{border-color:rgba(61,46,30,.18);border-top-color:var(--bark-light);}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .drag-ghost{position:fixed;pointer-events:none;z-index:9999;background:var(--bark);color:var(--cream);padding:6px 10px;border-radius:6px;font-family:'Playfair Display',serif;font-size:.75rem;font-style:italic;box-shadow:0 4px 16px rgba(0,0,0,.3);opacity:0;transition:opacity .1s;max-width:140px;border-left:3px solid var(--clay);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The <span>Weekly</span> Table</h1>
+  <div class="header-stats">
+    <div class="stat-pill"><div class="label">Avg Daily Calories</div><div class="value" id="avg-cal">—<span>kcal</span></div></div>
+    <div class="stat-pill"><div class="label">Avg Daily Protein</div><div class="value" id="avg-protein">—<span>g</span></div></div>
+  </div>
+</header>
+
+<div class="app-body">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>Recipe Library</h2>
+      <div class="sidebar-btns">
+        <button class="btn-icon sage" id="btn-import" title="Import from screenshot">📷</button>
+        <button class="btn-icon" id="btn-manual" title="Add recipe manually">+</button>
+      </div>
+    </div>
+
+    <div class="import-zone" id="import-zone">
+      <input type="file" id="import-file" accept="image/*">
+      <img class="import-preview" id="import-preview" alt="">
+      <span class="import-zone-icon">📋</span>
+      <div class="import-zone-text"><strong>Drop or click to upload</strong><br>a recipe screenshot</div>
+      <div class="import-zone-hint">JPG · PNG · or paste with ⌘V / Ctrl+V</div>
+      <div class="import-zone-status" id="import-status"><span class="spinner dark"></span> <span id="import-status-text">Reading recipe…</span></div>
+    </div>
+
+    <div class="recipe-list" id="recipe-list"></div>
+
+    <div class="add-recipe-panel" id="add-recipe-panel">
+      <div class="panel-title">New Recipe</div>
+      <div class="form-field"><label>Recipe Name</label><input type="text" id="recipe-name" placeholder="e.g. Greek Yogurt Bowl"></div>
+      <div class="form-field"><label>Meal Type</label>
+        <select id="recipe-type"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option></select>
+      </div>
+      <div class="ings-hdr">Ingredients</div>
+      <div id="ingredients-container"></div>
+      <button class="btn-add-ing" id="add-ingredient-btn">+ Add Ingredient</button>
+      <div class="servings-row"><label>Servings</label><input type="number" id="servings" value="1" min="1" max="40"></div>
+      <button class="btn-estimate" id="estimate-btn"><span id="estimate-btn-text">Estimate & Save</span></button>
+    </div>
+  </div>
+
+  <div class="grid-area">
+    <div class="week-nav">
+      <button id="prev-week">← Prev</button>
+      <span class="week-label" id="week-label"></span>
+      <button id="next-week">Next →</button>
+      <button class="btn-clear-week" id="clear-week">Clear Week</button>
+    </div>
+    <div class="planner-grid"><div class="grid-table" id="planner-grid"></div></div>
+    <div class="day-totals-bar"><div class="day-totals-inner" id="day-totals"></div></div>
+  </div>
+</div>
+
+<div class="context-menu" id="context-menu">
+  <div class="ctx-title" id="ctx-recipe-name"></div>
+  <div class="ctx-item" id="ctx-view"><span class="ctx-icon">👁</span> View Details</div>
+  <div class="ctx-item" id="ctx-reestimate"><span class="ctx-icon">✦</span> Re-estimate</div>
+  <div class="ctx-item danger" id="ctx-remove"><span class="ctx-icon">✕</span> Remove</div>
+</div>
+
+<div class="modal-overlay" id="view-overlay">
+  <div class="modal">
+    <button class="modal-close" id="view-close">×</button>
+    <h2 id="view-name"></h2>
+    <span class="modal-tag" id="view-tag"></span>
+    <div class="nutrition-grid" id="view-nutrition"></div>
+    <div class="modal-ingredients">
+      <h3>Ingredients <span style="font-family:'DM Sans',sans-serif;font-weight:400;font-size:.75rem;color:var(--bark-light)" id="view-servings"></span></h3>
+      <ul id="view-ingredients"></ul>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="confirm-overlay">
+  <div class="modal">
+    <button class="modal-close" id="confirm-close">×</button>
+    <div class="confirm-header">
+      <div id="confirm-thumb-wrap" class="confirm-thumb-placeholder">🍽</div>
+      <div class="confirm-title-area">
+        <span class="confirm-source">Extracted from screenshot — review before saving</span>
+        <h2 style="font-size:.95rem;margin-bottom:0">Confirm Recipe</h2>
+      </div>
+    </div>
+    <div class="confirm-fields">
+      <div class="confirm-field full"><label>Recipe Name</label><input type="text" id="confirm-name" placeholder="Recipe name"></div>
+      <div class="confirm-field"><label>Meal Type</label>
+        <select id="confirm-type"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option></select>
+      </div>
+      <div class="confirm-field"><label>Servings (yield)</label><input type="number" id="confirm-servings" value="2" min="1" max="40"></div>
+    </div>
+    <span class="confirm-ings-label">Ingredients — edit or add as needed</span>
+    <div id="confirm-ing-container"></div>
+    <button class="btn-confirm-add-ing" id="confirm-add-ing">+ Add Ingredient</button>
+    <div class="confirm-actions">
+      <button class="btn-confirm-cancel" id="confirm-cancel">Discard</button>
+      <button class="btn-confirm-save" id="confirm-save"><span id="confirm-save-text">Save & Estimate Nutrition</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="drag-ghost" id="drag-ghost"></div>
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const MEAL_TYPES=['Breakfast','Snack 1','Lunch','Snack 2','Dinner','Snack 3'];
+const MEAL_KEYS=['breakfast','snack1','lunch','snack2','dinner','snack3'];
+const UNITS=['g','oz','cup','tbsp','tsp','ml','l','lb','piece','slice','whole','pinch'];
+// All Claude API calls go through this proxy — your key stays on Netlify's server
+const API_PROXY='/.netlify/functions/api';
+
+let state={recipes:[],weeks:{},currentWeekOffset:0};
+
+const SAMPLES=[
+  {id:'s1',name:'Greek Yogurt Parfait',type:'Breakfast',servings:1,
+   ingredients:[{qty:'1',unit:'cup',name:'plain Greek yogurt (2%)'},{qty:'0.5',unit:'cup',name:'mixed berries'},{qty:'0.25',unit:'cup',name:'granola'},{qty:'1',unit:'tbsp',name:'honey'}],
+   nutrition:{calories:340,protein_g:22,carbs_g:48,fat_g:7,fiber_g:4,sodium_mg:85}},
+  {id:'s2',name:'Grilled Salmon & Quinoa',type:'Dinner',servings:1,
+   ingredients:[{qty:'6',unit:'oz',name:'salmon fillet'},{qty:'0.75',unit:'cup',name:'cooked quinoa'},{qty:'2',unit:'cup',name:'roasted asparagus'},{qty:'1',unit:'tbsp',name:'olive oil'}],
+   nutrition:{calories:520,protein_g:48,carbs_g:32,fat_g:18,fiber_g:6,sodium_mg:320}},
+  {id:'s3',name:'Avocado Toast with Eggs',type:'Breakfast',servings:1,
+   ingredients:[{qty:'2',unit:'slice',name:'sourdough bread'},{qty:'1',unit:'whole',name:'avocado'},{qty:'2',unit:'whole',name:'eggs, poached'},{qty:'1',unit:'pinch',name:'red pepper flakes'}],
+   nutrition:{calories:480,protein_g:18,carbs_g:42,fat_g:28,fiber_g:11,sodium_mg:410}},
+  {id:'s4',name:'Turkey & Hummus Wrap',type:'Lunch',servings:1,
+   ingredients:[{qty:'1',unit:'whole',name:'whole wheat tortilla'},{qty:'4',unit:'oz',name:'sliced turkey breast'},{qty:'3',unit:'tbsp',name:'hummus'},{qty:'1',unit:'cup',name:'mixed greens'}],
+   nutrition:{calories:385,protein_g:32,carbs_g:38,fat_g:11,fiber_g:7,sodium_mg:680}},
+  {id:'s5',name:'Almond Butter & Apple',type:'Snack',servings:1,
+   ingredients:[{qty:'1',unit:'whole',name:'medium apple'},{qty:'2',unit:'tbsp',name:'almond butter'}],
+   nutrition:{calories:235,protein_g:6,carbs_g:30,fat_g:13,fiber_g:5,sodium_mg:75}}
+];
+
+function save(){localStorage.setItem('mealplanner-v3',JSON.stringify(state));}
+function load(){
+  try{const r=localStorage.getItem('mealplanner-v3');if(r)state={...state,...JSON.parse(r)};}catch(e){}
+  if(!state.recipes||!state.recipes.length){state.recipes=SAMPLES;save();}
+}
+
+function isoWeek(d){const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));dt.setUTCDate(dt.getUTCDate()+4-(dt.getUTCDay()||7));const y=new Date(Date.UTC(dt.getUTCFullYear(),0,1));return Math.ceil((((dt-y)/86400000)+1)/7);}
+function weekKey(off=0){const d=new Date();d.setDate(d.getDate()-d.getDay()+1+off*7);return `${d.getFullYear()}-W${String(isoWeek(d)).padStart(2,'0')}`;}
+function monday(off=0){const d=new Date();const dy=d.getDay();d.setDate(d.getDate()-dy+(dy===0?-6:1)+off*7);d.setHours(0,0,0,0);return d;}
+function weekDates(off=0){const m=monday(off);return Array.from({length:7},(_,i)=>{const d=new Date(m);d.setDate(m.getDate()+i);return d;});}
+function isToday(d){const t=new Date();return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear();}
+function fmtDate(d){return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});}
+function weekData(){const k=weekKey(state.currentWeekOffset);if(!state.weeks[k])state.weeks[k]={};return state.weeks[k];}
+function slotKey(di,mk){return `${DAYS[di]}-${mk}`;}
+function getR(id){return state.recipes.find(r=>r.id===id);}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function toast(msg,type='info'){
+  const el=document.createElement('div');el.className=`toast ${type}`;el.textContent=msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+
+// ── CORE API CALL — goes through Netlify proxy, no key in browser ──
+async function callClaude(body){
+  const res=await fetch(API_PROXY,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  });
+  if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err.error||`HTTP ${res.status}`);}
+  return res.json();
+}
+
+function renderLibrary(){
+  const list=document.getElementById('recipe-list');
+  if(!state.recipes.length){list.innerHTML='<div class="empty-library">No recipes yet.</div>';return;}
+  list.innerHTML='';
+  state.recipes.forEach(r=>{
+    const c=document.createElement('div');c.className='recipe-card';c.draggable=true;c.dataset.id=r.id;
+    const cal=r.nutrition?r.nutrition.calories:'—';
+    const prot=r.nutrition?`${r.nutrition.protein_g}g protein`:'No nutrition data';
+    c.innerHTML=`<div class="recipe-card-name">${esc(r.name)}</div>
+      <div class="recipe-card-meta"><span class="recipe-card-cal">${cal} kcal</span><span>${prot}</span></div>
+      <span class="recipe-card-tag">${r.type}</span>
+      <button class="recipe-card-delete" data-id="${r.id}">×</button>`;
+    c.addEventListener('dragstart',onDragStart);
+    c.querySelector('.recipe-card-delete').addEventListener('click',e=>{e.stopPropagation();deleteR(r.id);});
+    list.appendChild(c);
+  });
+}
+
+function renderGrid(){
+  const grid=document.getElementById('planner-grid');
+  const dates=weekDates(state.currentWeekOffset);
+  const wd=weekData();
+  document.getElementById('week-label').textContent=`${fmtDate(dates[0])} – ${fmtDate(dates[6])}`;
+  let h='<div></div>';
+  dates.forEach((d,i)=>h+=`<div class="day-header ${isToday(d)?'today':''}"><span class="day-name">${DAYS[i]}</span><span class="day-date">${fmtDate(d)}</span></div>`);
+  MEAL_TYPES.forEach((ml,mi)=>{
+    const mk=MEAL_KEYS[mi];
+    h+=`<div class="meal-label"><span>${ml}</span></div>`;
+    dates.forEach((d,di)=>{
+      const sk=slotKey(di,mk);const r=getR(wd[sk]);
+      h+=`<div class="meal-slot meal-${mk} ${r?'has-recipe':''}" data-slot="${sk}">`;
+      if(r){
+        const cal=r.nutrition?r.nutrition.calories:'—';
+        const prot=r.nutrition?`P: ${r.nutrition.protein_g}g`:'';
+        const fat=r.nutrition?`F: ${r.nutrition.fat_g}g`:'';
+        h+=`<div class="slot-color-bar"></div><div class="slot-recipe" data-slot="${sk}">
+          <div class="slot-recipe-name">${esc(r.name)}</div>
+          <div class="slot-recipe-cal">${cal} kcal</div>
+          <div class="slot-recipe-macros">${prot} · ${fat}</div></div>`;
+      }else{h+=`<div class="slot-empty"><span class="slot-empty-icon">+</span></div>`;}
+      h+=`</div>`;
+    });
+  });
+  grid.innerHTML=h;
+  grid.querySelectorAll('.meal-slot').forEach(s=>{
+    s.addEventListener('dragover',onDragOver);s.addEventListener('dragleave',onDragLeave);s.addEventListener('drop',onDrop);
+  });
+  grid.querySelectorAll('.slot-recipe').forEach(el=>el.addEventListener('contextmenu',onCtx));
+  renderTotals();updateStats();
+}
+
+function renderTotals(){
+  const bar=document.getElementById('day-totals');
+  const dates=weekDates(state.currentWeekOffset);const wd=weekData();
+  let h='<div class="totals-label">Daily<br>Totals</div>';
+  dates.forEach((d,di)=>{
+    let cal=0,prot=0;
+    MEAL_KEYS.forEach(mk=>{const r=getR(wd[slotKey(di,mk)]);if(r&&r.nutrition){cal+=r.nutrition.calories;prot+=r.nutrition.protein_g;}});
+    h+=`<div class="day-total-cell ${isToday(d)?'today-col':''}">
+      <span class="total-cal">${cal>0?cal:'—'}<span class="total-cal-unit"> kcal</span></span>
+      ${prot>0?`<span class="total-protein">${prot}g protein</span>`:''}
+    </div>`;
+  });
+  bar.innerHTML=h;
+}
+
+function updateStats(){
+  const dates=weekDates(state.currentWeekOffset);const wd=weekData();
+  let tc=0,tp=0,ad=0;
+  dates.forEach((_,di)=>{
+    let dc=0,dp=0;
+    MEAL_KEYS.forEach(mk=>{const r=getR(wd[slotKey(di,mk)]);if(r&&r.nutrition){dc+=r.nutrition.calories;dp+=r.nutrition.protein_g;}});
+    if(dc>0){tc+=dc;tp+=dp;ad++;}
+  });
+  document.getElementById('avg-cal').innerHTML=ad>0?`${Math.round(tc/ad)}<span>kcal</span>`:`—<span>kcal</span>`;
+  document.getElementById('avg-protein').innerHTML=ad>0?`${Math.round(tp/ad)}<span>g</span>`:`—<span>g</span>`;
+}
+
+// ── DRAG & DROP ──
+let dragId=null;
+const ghost=document.getElementById('drag-ghost');
+function onDragStart(e){
+  dragId=e.currentTarget.dataset.id;e.currentTarget.classList.add('dragging');
+  const r=getR(dragId);ghost.textContent=r?r.name:'';ghost.style.opacity='1';
+  e.dataTransfer.effectAllowed='copy';e.dataTransfer.setDragImage(document.createElement('div'),0,0);
+  document.addEventListener('dragend',()=>{e.currentTarget.classList.remove('dragging');ghost.style.opacity='0';dragId=null;},{once:true});
+}
+document.addEventListener('dragover',e=>{ghost.style.left=(e.clientX+14)+'px';ghost.style.top=(e.clientY+10)+'px';});
+function onDragOver(e){if(!dragId)return;e.preventDefault();e.dataTransfer.dropEffect='copy';e.currentTarget.classList.add('drag-over');}
+function onDragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function onDrop(e){
+  e.preventDefault();e.currentTarget.classList.remove('drag-over');
+  if(!dragId)return;
+  weekData()[e.currentTarget.dataset.slot]=dragId;save();renderGrid();
+  toast(`${getR(dragId).name} added`,'success');
+}
+
+// ── CONTEXT MENU ──
+let ctxSlot=null;
+const ctxMenu=document.getElementById('context-menu');
+function onCtx(e){
+  e.preventDefault();ctxSlot=e.currentTarget.dataset.slot;
+  const r=getR(weekData()[ctxSlot]);if(!r)return;
+  document.getElementById('ctx-recipe-name').textContent=r.name;
+  ctxMenu.style.left=Math.min(e.clientX,window.innerWidth-180)+'px';
+  ctxMenu.style.top=Math.min(e.clientY,window.innerHeight-140)+'px';
+  ctxMenu.classList.add('open');
+}
+document.addEventListener('click',()=>ctxMenu.classList.remove('open'));
+document.addEventListener('contextmenu',e=>{if(!e.target.closest('.slot-recipe'))ctxMenu.classList.remove('open');});
+document.getElementById('ctx-view').addEventListener('click',()=>{if(!ctxSlot)return;openViewModal(getR(weekData()[ctxSlot]));});
+document.getElementById('ctx-reestimate').addEventListener('click',async()=>{
+  if(!ctxSlot)return;const r=getR(weekData()[ctxSlot]);if(!r)return;
+  toast('Re-estimating…');
+  try{await estimateNutrition(r);save();renderGrid();renderLibrary();toast(`${r.name} updated`,'success');}
+  catch(err){toast('Error: '+err.message,'error');}
+});
+document.getElementById('ctx-remove').addEventListener('click',()=>{
+  if(!ctxSlot)return;delete weekData()[ctxSlot];save();renderGrid();
+});
+
+// ── VIEW MODAL ──
+function openViewModal(r){
+  if(!r)return;
+  document.getElementById('view-name').textContent=r.name;
+  document.getElementById('view-tag').textContent=r.type+' · '+r.servings+' serving'+(r.servings>1?'s':'');
+  document.getElementById('view-servings').textContent='(per serving)';
+  const n=r.nutrition||{};
+  document.getElementById('view-nutrition').innerHTML=`
+    <div class="nut-cell highlight"><span class="nut-value">${n.calories||'—'}</span><span class="nut-label">Calories</span></div>
+    <div class="nut-cell"><span class="nut-value">${n.protein_g||'—'}</span><span class="nut-label">Protein (g)</span></div>
+    <div class="nut-cell"><span class="nut-value">${n.carbs_g||'—'}</span><span class="nut-label">Carbs (g)</span></div>
+    <div class="nut-cell"><span class="nut-value">${n.fat_g||'—'}</span><span class="nut-label">Fat (g)</span></div>
+    <div class="nut-cell"><span class="nut-value">${n.fiber_g||'—'}</span><span class="nut-label">Fiber (g)</span></div>
+    <div class="nut-cell"><span class="nut-value">${n.sodium_mg||'—'}</span><span class="nut-label">Sodium (mg)</span></div>`;
+  document.getElementById('view-ingredients').innerHTML=r.ingredients.map(i=>`<li>${esc(i.qty)} ${esc(i.unit)} ${esc(i.name)}</li>`).join('');
+  document.getElementById('view-overlay').classList.add('open');
+}
+document.getElementById('view-close').addEventListener('click',()=>document.getElementById('view-overlay').classList.remove('open'));
+document.getElementById('view-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('open');});
+
+// ── INGREDIENT ROW HELPERS ──
+function makeIngRow(qty='',unit='g',name='',dark=false){
+  const row=document.createElement('div');
+  row.className=dark?'ingredient-row':'confirm-ing-row';
+  const rmClass=dark?'btn-remove-ing':'btn-rm';
+  row.innerHTML=`
+    <input type="text" placeholder="Qty" value="${esc(qty)}" class="ing-qty">
+    <select class="ing-unit">${UNITS.map(u=>`<option ${u===unit?'selected':''} value="${u}">${u}</option>`).join('')}</select>
+    <input type="text" placeholder="Ingredient" value="${esc(name)}" class="ing-name">
+    <button class="${rmClass}" type="button">×</button>`;
+  row.querySelector('.'+rmClass).addEventListener('click',()=>row.remove());
+  return row;
+}
+function readIngRows(container){
+  const ings=[];
+  container.querySelectorAll('.ingredient-row,.confirm-ing-row').forEach(row=>{
+    const qty=row.querySelector('.ing-qty').value.trim();
+    const unit=row.querySelector('.ing-unit').value;
+    const name=row.querySelector('.ing-name').value.trim();
+    if(qty&&name)ings.push({qty,unit,name});
+  });
+  return ings;
+}
+
+// ── ESTIMATE NUTRITION (via proxy) ──
+async function estimateNutrition(recipe){
+  const ingList=recipe.ingredients.map(i=>`${i.qty} ${i.unit} ${i.name}`).join(', ');
+  const prompt=`Estimate nutrition facts per serving for a recipe with ${recipe.servings} serving(s).\nIngredients: ${ingList}\nReturn ONLY a raw JSON object with keys: calories, protein_g, carbs_g, fat_g, fiber_g, sodium_mg. No markdown, no explanation.`;
+  const data=await callClaude({model:'claude-sonnet-4-20250514',max_tokens:200,messages:[{role:'user',content:prompt}]});
+  const text=data.content.map(c=>c.text||'').join('').trim();
+  recipe.nutrition=JSON.parse(text.replace(/```json|```/g,'').trim());
+  return recipe.nutrition;
+}
+
+// ── MANUAL FORM ──
+document.getElementById('btn-manual').addEventListener('click',()=>{
+  const panel=document.getElementById('add-recipe-panel');
+  const open=panel.classList.toggle('open');
+  document.getElementById('btn-manual').textContent=open?'−':'+';
+  if(open){
+    document.getElementById('import-zone').classList.remove('visible');
+    document.getElementById('btn-import').textContent='📷';
+    if(!document.getElementById('ingredients-container').children.length){
+      document.getElementById('ingredients-container').appendChild(makeIngRow('','g','',true));
+      document.getElementById('ingredients-container').appendChild(makeIngRow('','g','',true));
+    }
+  }
+});
+document.getElementById('add-ingredient-btn').addEventListener('click',()=>{
+  document.getElementById('ingredients-container').appendChild(makeIngRow('','g','',true));
+});
+
+document.getElementById('estimate-btn').addEventListener('click',async()=>{
+  const name=document.getElementById('recipe-name').value.trim();
+  const type=document.getElementById('recipe-type').value;
+  const servings=parseInt(document.getElementById('servings').value)||1;
+  if(!name){toast('Enter a recipe name','error');return;}
+  const ingredients=readIngRows(document.getElementById('ingredients-container'));
+  if(!ingredients.length){toast('Add at least one ingredient','error');return;}
+  const btn=document.getElementById('estimate-btn');const bt=document.getElementById('estimate-btn-text');
+  btn.disabled=true;bt.innerHTML='<span class="spinner"></span> Estimating…';
+  const recipe={id:'r-'+Date.now(),name,type,servings,ingredients,nutrition:null};
+  try{
+    await estimateNutrition(recipe);
+    state.recipes.push(recipe);save();renderLibrary();renderGrid();
+    document.getElementById('recipe-name').value='';
+    document.getElementById('ingredients-container').innerHTML='';
+    document.getElementById('servings').value='1';
+    toast(`${name} saved — ${recipe.nutrition.calories} kcal/serving`,'success');
+  }catch(err){toast('Error: '+err.message,'error');}
+  finally{btn.disabled=false;bt.textContent='Estimate & Save';}
+});
+
+function deleteR(id){
+  state.recipes=state.recipes.filter(r=>r.id!==id);
+  Object.values(state.weeks).forEach(wk=>Object.keys(wk).forEach(k=>{if(wk[k]===id)delete wk[k];}));
+  save();renderLibrary();renderGrid();
+}
+
+document.getElementById('prev-week').addEventListener('click',()=>{state.currentWeekOffset--;save();renderGrid();});
+document.getElementById('next-week').addEventListener('click',()=>{state.currentWeekOffset++;save();renderGrid();});
+document.getElementById('clear-week').addEventListener('click',()=>{
+  if(!confirm('Clear all meals from this week?'))return;
+  state.weeks[weekKey(state.currentWeekOffset)]={};save();renderGrid();
+});
+
+// ── SCREENSHOT IMPORT ──
+const importZone=document.getElementById('import-zone');
+const importFileInput=document.getElementById('import-file');
+
+document.getElementById('btn-import').addEventListener('click',()=>{
+  const visible=importZone.classList.toggle('visible');
+  document.getElementById('btn-import').textContent=visible?'✕':'📷';
+  if(visible){
+    document.getElementById('add-recipe-panel').classList.remove('open');
+    document.getElementById('btn-manual').textContent='+';
+  }
+});
+importZone.addEventListener('click',()=>importFileInput.click());
+importFileInput.addEventListener('change',e=>{const f=e.target.files[0];if(f)handleImport(f);importFileInput.value='';});
+importZone.addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();importZone.classList.add('dragover');});
+importZone.addEventListener('dragleave',()=>importZone.classList.remove('dragover'));
+importZone.addEventListener('drop',e=>{
+  e.preventDefault();e.stopPropagation();importZone.classList.remove('dragover');
+  const f=e.dataTransfer.files[0];
+  if(f&&f.type.startsWith('image/'))handleImport(f);
+  else toast('Please drop an image file','error');
+});
+document.addEventListener('paste',e=>{
+  const items=e.clipboardData?.items;if(!items)return;
+  for(const item of items){
+    if(item.type.startsWith('image/')){
+      const f=item.getAsFile();if(!f)break;
+      if(!importZone.classList.contains('visible')){
+        importZone.classList.add('visible');
+        document.getElementById('btn-import').textContent='✕';
+        document.getElementById('add-recipe-panel').classList.remove('open');
+        document.getElementById('btn-manual').textContent='+';
+      }
+      handleImport(f);break;
+    }
+  }
+});
+
+function handleImport(file){
+  const reader=new FileReader();
+  reader.onload=async(e)=>{
+    const dataUrl=e.target.result;
+    const base64=dataUrl.split(',')[1];
+    const mediaType=file.type||'image/jpeg';
+    const prevImg=document.getElementById('import-preview');
+    prevImg.src=dataUrl;
+    importZone.classList.add('has-image','loading');
+    const statusEl=document.getElementById('import-status');
+    statusEl.style.display='flex';
+    document.getElementById('import-status-text').textContent='Reading recipe…';
+    try{
+      const extracted=await extractFromImage(base64,mediaType);
+      showConfirmModal(extracted,dataUrl);
+    }catch(err){
+      toast('Could not read recipe: '+err.message,'error');
+    }finally{
+      importZone.classList.remove('loading','has-image');
+      prevImg.src='';statusEl.style.display='none';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function extractFromImage(base64,mediaType){
+  const prompt=`You are looking at a screenshot of a recipe from a food blog, recipe website, or cooking app.\n\nExtract the recipe and return ONLY a raw JSON object:\n{\n  "name": "Recipe name as shown",\n  "type": "Breakfast|Lunch|Dinner|Snack",\n  "servings": <integer>,\n  "ingredients": [\n    { "qty": "amount", "unit": "g|oz|cup|tbsp|tsp|ml|l|lb|piece|slice|whole|pinch", "name": "ingredient name" }\n  ]\n}\nRules: extract every ingredient with exact amounts, estimate servings from the recipe yield, infer meal type from the dish, return only the JSON.`;
+  const data=await callClaude({
+    model:'claude-sonnet-4-20250514',max_tokens:1200,
+    messages:[{role:'user',content:[
+      {type:'image',source:{type:'base64',media_type:mediaType,data:base64}},
+      {type:'text',text:prompt}
+    ]}]
+  });
+  const text=data.content.map(c=>c.text||'').join('').trim();
+  return JSON.parse(text.replace(/```json|```/g,'').trim());
+}
+
+// ── CONFIRM MODAL ──
+function showConfirmModal(extracted,imageDataUrl){
+  const tw=document.getElementById('confirm-thumb-wrap');
+  if(imageDataUrl){tw.outerHTML=`<img id="confirm-thumb-wrap" src="${imageDataUrl}" class="confirm-thumb" alt="preview">`;}
+  document.getElementById('confirm-name').value=extracted.name||'';
+  const mt=['Breakfast','Lunch','Dinner','Snack'].find(t=>t.toLowerCase()===(extracted.type||'').toLowerCase());
+  document.getElementById('confirm-type').value=mt||'Dinner';
+  document.getElementById('confirm-servings').value=extracted.servings||2;
+  const container=document.getElementById('confirm-ing-container');
+  container.innerHTML='';
+  (extracted.ingredients||[]).forEach(ing=>container.appendChild(makeIngRow(ing.qty,ing.unit||'g',ing.name)));
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+document.getElementById('confirm-add-ing').addEventListener('click',()=>document.getElementById('confirm-ing-container').appendChild(makeIngRow()));
+document.getElementById('confirm-close').addEventListener('click',()=>document.getElementById('confirm-overlay').classList.remove('open'));
+document.getElementById('confirm-cancel').addEventListener('click',()=>document.getElementById('confirm-overlay').classList.remove('open'));
+document.getElementById('confirm-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('open');});
+
+document.getElementById('confirm-save').addEventListener('click',async()=>{
+  const name=document.getElementById('confirm-name').value.trim();
+  const type=document.getElementById('confirm-type').value;
+  const servings=parseInt(document.getElementById('confirm-servings').value)||2;
+  if(!name){toast('Add a recipe name','error');return;}
+  const ingredients=readIngRows(document.getElementById('confirm-ing-container'));
+  if(!ingredients.length){toast('No ingredients found','error');return;}
+  const btn=document.getElementById('confirm-save');const bt=document.getElementById('confirm-save-text');
+  btn.disabled=true;bt.innerHTML='<span class="spinner"></span> Saving…';
+  const recipe={id:'r-'+Date.now(),name,type,servings,ingredients,nutrition:null};
+  try{
+    await estimateNutrition(recipe);
+    state.recipes.push(recipe);save();renderLibrary();renderGrid();
+    document.getElementById('confirm-overlay').classList.remove('open');
+    importZone.classList.remove('visible');
+    document.getElementById('btn-import').textContent='📷';
+    toast(`${name} saved — ${recipe.nutrition.calories} kcal/serving`,'success');
+  }catch(err){toast('Error: '+err.message,'error');}
+  finally{btn.disabled=false;bt.textContent='Save & Estimate Nutrition';}
+});
+
+load();renderLibrary();renderGrid();
+</script>
+</body>
+</html>
